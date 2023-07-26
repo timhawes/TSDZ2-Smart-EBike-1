@@ -442,6 +442,7 @@ static uint8_t  ui8_riding_mode_parameter_array[8][5] = {
 // communications functions
 static void uart_receive_package(void);
 static void uart_send_package(void);
+static void uart_send_metrics_package(void);
 
 // system functions
 static void get_battery_voltage_filtered(void);
@@ -591,6 +592,7 @@ void ebike_app_controller(void)
 			uart_send_package();
 			break;
 		case 3:
+			uart_send_metrics_package();
 			check_battery_soc();
 			break;
 	}
@@ -3355,6 +3357,56 @@ static void uart_send_package(void)
 		{
 			putchar(ui8_tx_buffer[ui8_i]);
 		}
+	}
+}
+
+
+static void uart_send_metrics_package(void)
+{	
+	uint8_t ui8_i;
+	uint8_t ui8_tx_check_code;
+	uint8_t ui8_tx_buffer_len = 25;
+	uint8_t ui8_tx_buffer[25];
+
+	ui8_tx_buffer[0] = 0x47;
+	// modes
+	ui8_tx_buffer[1] = ui8_assist_level;
+	ui8_tx_buffer[2] = m_configuration_variables.ui8_riding_mode;
+	ui8_tx_buffer[3] = ui8_riding_mode_parameter;
+	// control
+	ui8_tx_buffer[4] = ui8_controller_duty_cycle_ramp_up_inverse_step;
+    ui8_tx_buffer[5] = ui8_controller_duty_cycle_ramp_down_inverse_step;
+    ui8_tx_buffer[6] = ui8_controller_adc_battery_current_target;
+    ui8_tx_buffer[7] = ui8_controller_duty_cycle_target;
+	ui8_tx_buffer[8] = ui8_adc_battery_current_target;
+	// measurements
+	ui8_tx_buffer[9] = ui8_pedal_cadence_RPM;
+	ui8_tx_buffer[10] = (uint8_t)(ui16_wheel_speed_x10 >> 8);
+	ui8_tx_buffer[11] = (uint8_t)(ui16_wheel_speed_x10 & 0xFF);
+	ui8_tx_buffer[12] = (uint8_t)(ui16_adc_pedal_torque_delta >> 8);
+	ui8_tx_buffer[13] = (uint8_t)(ui16_adc_pedal_torque_delta & 0xFF);
+	ui8_tx_buffer[14] = (uint8_t)(ui16_human_power_x10 >> 8);
+	ui8_tx_buffer[15] = (uint8_t)(ui16_human_power_x10 & 0xFF);
+	ui8_tx_buffer[16] = UI8_ADC_TORQUE_SENSOR;
+	ui8_tx_buffer[17] = (uint8_t)(UI16_ADC_10_BIT_TORQUE_SENSOR >> 8);
+	ui8_tx_buffer[18] = (uint8_t)(UI16_ADC_10_BIT_TORQUE_SENSOR & 0xFF);
+	ui8_tx_buffer[19] = (uint8_t)(ui16_motor_speed_erps >> 8);
+	ui8_tx_buffer[20] = (uint8_t)(ui16_motor_speed_erps & 0xFF);
+	ui8_tx_buffer[21] = (uint8_t)(ui16_battery_voltage_filtered_x1000 >> 8);
+	ui8_tx_buffer[22] = (uint8_t)(ui16_battery_voltage_filtered_x1000 & 0xFF);
+	ui8_tx_buffer[23] = ui8_battery_current_filtered_x10;
+
+	ui8_tx_check_code = 0x00;
+	for(ui8_i = 0; ui8_i < ui8_tx_buffer_len - 1; ui8_i++)
+	{
+		ui8_tx_check_code += ui8_tx_buffer[ui8_i];
+	}
+	ui8_tx_buffer[ui8_tx_buffer_len - 1] = ui8_tx_check_code;
+
+	// send the full package to UART
+	for(ui8_i = 0; ui8_i < ui8_tx_buffer_len; ui8_i++)
+	{
+		putchar(ui8_tx_buffer[ui8_i]);
 	}
 }
 
